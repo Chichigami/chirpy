@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -18,40 +17,22 @@ func handlerValidateChirp(w http.ResponseWriter, req *http.Request) {
 		Cleaned_body string `json:"cleaned_body"`
 	}
 
-	type errorVal struct {
-		Error string `json:"error"`
-	}
-
 	decoder := json.NewDecoder(req.Body)
 	param := parameter{}
 	if decodeErr := decoder.Decode(&param); decodeErr != nil {
-		data, _ := json.Marshal(errorVal{Error: decodeErr.Error()})
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(400)
-		w.Write(data)
+		respondWithError(w, 400, decodeErr.Error())
 		return
 	}
 
 	if len(param.Body) > chirpMaxLength {
-		data, _ := json.Marshal(errorVal{Error: longChirp})
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(400)
-		w.Write(data)
+		respondWithError(w, 400, longChirp)
 		return
 	}
-	profaneCleaner(param.Body)
+
 	respBody := returnVal{
 		Cleaned_body: profaneCleaner(param.Body),
 	}
-	data, encodeErr := json.Marshal(respBody)
-	if encodeErr != nil {
-		log.Printf("Error marshaling JSON %s", encodeErr)
-		w.WriteHeader(500)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(data)
+	respondWithJSON(w, http.StatusOK, respBody)
 }
 
 func profaneCleaner(body string) string {
