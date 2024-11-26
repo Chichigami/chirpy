@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 )
 
 func handlerValidateChirp(w http.ResponseWriter, req *http.Request) {
@@ -14,7 +15,7 @@ func handlerValidateChirp(w http.ResponseWriter, req *http.Request) {
 	}
 
 	type returnVal struct {
-		Valid bool `json:"valid"`
+		Cleaned_body string `json:"cleaned_body"`
 	}
 
 	type errorVal struct {
@@ -23,14 +24,14 @@ func handlerValidateChirp(w http.ResponseWriter, req *http.Request) {
 
 	decoder := json.NewDecoder(req.Body)
 	param := parameter{}
-	decodeErr := decoder.Decode(&param)
-	if decodeErr != nil {
+	if decodeErr := decoder.Decode(&param); decodeErr != nil {
 		data, _ := json.Marshal(errorVal{Error: decodeErr.Error()})
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(400)
 		w.Write(data)
 		return
 	}
+
 	if len(param.Body) > chirpMaxLength {
 		data, _ := json.Marshal(errorVal{Error: longChirp})
 		w.Header().Set("Content-Type", "application/json")
@@ -38,8 +39,10 @@ func handlerValidateChirp(w http.ResponseWriter, req *http.Request) {
 		w.Write(data)
 		return
 	}
-
-	respBody := returnVal{}
+	profaneCleaner(param.Body)
+	respBody := returnVal{
+		Cleaned_body: profaneCleaner(param.Body),
+	}
 	data, encodeErr := json.Marshal(respBody)
 	if encodeErr != nil {
 		log.Printf("Error marshaling JSON %s", encodeErr)
@@ -49,4 +52,24 @@ func handlerValidateChirp(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(data)
+}
+
+func profaneCleaner(body string) string {
+	const replacement = "****"
+	profanes := map[string]bool{
+		"kerfuffle": true,
+		"sharbert":  true,
+		"fornax":    true,
+	}
+
+	words := strings.Split(body, " ")
+	for i, word := range words {
+		if profanes[strings.ToLower(word)] {
+			words[i] = replacement
+		} else {
+			words[i] = word
+		}
+	}
+
+	return strings.Join(words, " ")
 }
