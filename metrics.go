@@ -28,5 +28,10 @@ func (cfg *apiConfig) handlerMetric(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *apiConfig) handlerMetricReset(w http.ResponseWriter, req *http.Request) {
+	if cfg.perm != "dev" {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	cfg.db.DeleteAllUsers(req.Context())
 	cfg.fileserverHits.Store(0)
 }
