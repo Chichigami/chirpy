@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, req *http.Request) {
+func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, req *http.Request) {
 	//called from POST /api/users
 	email := Email{}
 	decoder := json.NewDecoder(req.Body)

@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func handlerValidateChirp(w http.ResponseWriter, req *http.Request) {
+func handlerChripsValidate(w http.ResponseWriter, req *http.Request) {
 	const chirpMaxLength = 140
 	const longChirp = "Chirp is too long"
 	type parameter struct {
