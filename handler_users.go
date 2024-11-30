@@ -10,13 +10,17 @@ import (
 
 func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, req *http.Request) {
 	//called from POST /api/users
-	email := Email{}
+	type parameter struct {
+		Email string `json:"email"`
+	}
+
+	param := parameter{}
 	decoder := json.NewDecoder(req.Body)
-	if decodeErr := decoder.Decode(&email); decodeErr != nil {
+	if decodeErr := decoder.Decode(&param); decodeErr != nil {
 		respondWithError(w, 400, decodeErr.Error())
 		return
 	}
-	newUser, dbErr := cfg.db.CreateUser(req.Context(), email.Email)
+	newUser, dbErr := cfg.db.CreateUser(req.Context(), param.Email)
 	if dbErr != nil {
 		respondWithError(w, http.StatusInternalServerError, dbErr.Error())
 	}
@@ -27,10 +31,6 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, req *http.Reques
 		newUser.UpdatedAt,
 		newUser.Email,
 	})
-}
-
-type Email struct {
-	Email string `json:"email"`
 }
 
 type User struct {
