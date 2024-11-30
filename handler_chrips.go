@@ -11,17 +11,30 @@ import (
 	"github.com/google/uuid"
 )
 
+func (cfg *apiConfig) handlerChirpsGetAll(w http.ResponseWriter, req *http.Request) {
+	dbChirps, err := cfg.db.ListChrips(req.Context())
+	if err != nil {
+		respondWithError(w, 500, "fetching all chirps error")
+		return
+	}
+	allChirps := []chirpResource{}
+	for _, dbChirp := range dbChirps {
+		jsonChirp := chirpResource{
+			ID:        dbChirp.ID,
+			CreatedAt: dbChirp.CreatedAt,
+			UpdatedAt: dbChirp.UpdatedAt,
+			Body:      dbChirp.Body,
+			User_ID:   dbChirp.UserID,
+		}
+		allChirps = append(allChirps, jsonChirp)
+	}
+	respondWithJSON(w, http.StatusOK, allChirps)
+}
+
 func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, req *http.Request) {
 	type parameter struct {
 		Body    string    `json:"body"`
 		User_ID uuid.UUID `json:"user_id"`
-	}
-	type chirpResource struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Body      string    `json:"body"`
-		User_ID   uuid.UUID `json:"user_id"`
 	}
 
 	param := parameter{}
@@ -42,11 +55,11 @@ func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, req *http.Reque
 		respondWithError(w, 500, "chrip creation db error")
 	}
 	respondWithJSON(w, http.StatusCreated, chirpResource{
-		dbChrip.ID,
-		dbChrip.CreatedAt,
-		dbChrip.UpdatedAt,
-		dbChrip.Body,
-		dbChrip.UserID,
+		ID:        dbChrip.ID,
+		CreatedAt: dbChrip.CreatedAt,
+		UpdatedAt: dbChrip.UpdatedAt,
+		Body:      dbChrip.Body,
+		User_ID:   dbChrip.UserID,
 	})
 }
 
@@ -78,4 +91,12 @@ func profaneCleaner(body string) string {
 	}
 
 	return strings.Join(words, " ")
+}
+
+type chirpResource struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Body      string    `json:"body"`
+	User_ID   uuid.UUID `json:"user_id"`
 }
