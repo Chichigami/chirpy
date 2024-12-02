@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chichigami/chirpy/internal/auth"
 	"github.com/chichigami/chirpy/internal/database"
 	"github.com/google/uuid"
 )
@@ -52,9 +53,20 @@ func (cfg *apiConfig) handlerChirpsGetAll(w http.ResponseWriter, req *http.Reque
 }
 
 func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, req *http.Request) {
+	//POST /api/chirps
+	userToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, 401, err.Error())
+		return
+	}
+	userID, err := auth.ValidateJWT(userToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, 401, "invalid jwt token")
+		return
+	}
+
 	type parameter struct {
-		Body    string    `json:"body"`
-		User_ID uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
 	}
 
 	param := parameter{}
@@ -69,7 +81,7 @@ func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, req *http.Reque
 	}
 	dbChrip, err := cfg.db.CreateChrip(req.Context(), database.CreateChripParams{
 		Body:   validatedChirp,
-		UserID: param.User_ID,
+		UserID: userID,
 	})
 	if err != nil {
 		respondWithError(w, 500, "chrip creation db error")

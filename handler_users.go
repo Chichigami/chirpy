@@ -11,6 +11,13 @@ import (
 )
 
 func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, req *http.Request) {
+	type User struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Email     string    `json:"email"`
+		Token     string    `json:"token"`
+	}
 	param := parameter{}
 	decoder := json.NewDecoder(req.Body)
 	if decodeErr := decoder.Decode(&param); decodeErr != nil {
@@ -27,16 +34,34 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, req *http.Request
 		return
 	}
 
+	const maxTokenDuration = time.Hour
+	expiresIn := time.Duration(param.Expires_In_Seconds) * time.Second
+	if expiresIn > maxTokenDuration || param.Expires_In_Seconds == 0 {
+		expiresIn = maxTokenDuration
+	}
+	userToken, err := auth.MakeJWT(dbUser.ID, cfg.jwtSecret, expiresIn)
+	if err != nil {
+		respondWithError(w, 500, "token generation failed")
+		return
+	}
+
 	respondWithJSON(w, http.StatusOK, User{
 		dbUser.ID,
 		dbUser.CreatedAt,
 		dbUser.UpdatedAt,
 		dbUser.Email,
+		userToken,
 	})
 }
 
 func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, req *http.Request) {
 	//called from POST /api/users
+	type User struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Email     string    `json:"email"`
+	}
 	param := parameter{}
 	decoder := json.NewDecoder(req.Body)
 	if decodeErr := decoder.Decode(&param); decodeErr != nil {
@@ -67,14 +92,8 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, req *http.Reques
 	})
 }
 
-type User struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
-}
-
 type parameter struct {
-	Password string `json:"password"`
-	Email    string `json:"email"`
+	Password           string `json:"password"`
+	Email              string `json:"email"`
+	Expires_In_Seconds int    `json:"expires_in_seconds"`
 }
