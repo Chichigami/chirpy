@@ -11,6 +11,54 @@ import (
 	"github.com/google/uuid"
 )
 
+func (cfg *apiConfig) handlerUsersUpdate(w http.ResponseWriter, req *http.Request) {
+	jwtToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, 401, err.Error())
+		return
+	}
+	userID, err := auth.ValidateJWT(jwtToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, 401, err.Error())
+		return
+	}
+
+	param := parameter{}
+	decoder := json.NewDecoder(req.Body)
+	if err := decoder.Decode(&param); err != nil {
+		respondWithError(w, 400, err.Error())
+		return
+	}
+
+	newPassword, err := auth.HashPassword(param.Password)
+	if err != nil {
+		respondWithError(w, 500, err.Error())
+		return
+	}
+	cfg.db.UpdateEmailandPassword(req.Context(), database.UpdateEmailandPasswordParams{
+		ID:             userID,
+		Email:          param.Email,
+		HashedPassword: newPassword,
+	})
+	type User struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Email     string    `json:"email"`
+	}
+	dbUser, err := cfg.db.GetUserByEmail(req.Context(), param.Email)
+	if err != nil {
+		respondWithError(w, 500, "fetching user failed")
+		return
+	}
+	respondWithJSON(w, 200, User{
+		ID:        dbUser.ID,
+		CreatedAt: dbUser.CreatedAt,
+		UpdatedAt: dbUser.UpdatedAt,
+		Email:     dbUser.Email,
+	})
+}
+
 func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, req *http.Request) {
 	type User struct {
 		ID            uuid.UUID `json:"id"`
@@ -41,7 +89,7 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, req *http.Request
 
 	userToken, err := auth.MakeJWT(dbUser.ID, cfg.jwtSecret, maxTokenDuration)
 	if err != nil {
-		respondWithError(w, 500, "token generation failed")
+		respondWithError(w, 500, "access token generation failed")
 		return
 	}
 

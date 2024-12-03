@@ -26,7 +26,7 @@ func GetBearerToken(headers http.Header) (string, error) {
 	authInfo := headers.Get("Authorization")
 	tokenParts := strings.Split(authInfo, " ")
 	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-		return "", fmt.Errorf("not a bearer token")
+		return "", fmt.Errorf("no bearer token found")
 	}
 	return tokenParts[1], nil
 }
