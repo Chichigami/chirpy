@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/chichigami/chirpy/internal/auth"
 	"github.com/chichigami/chirpy/internal/database"
@@ -55,12 +54,12 @@ func (cfg *apiConfig) handlerChirpsGetID(w http.ResponseWriter, req *http.Reques
 		respondWithError(w, http.StatusNotFound, "fetching chirp server error")
 		return
 	}
-	respondWithJSON(w, http.StatusOK, chirpResource{
+	respondWithJSON(w, http.StatusOK, database.Chirp{
 		ID:        dbChirp.ID,
 		CreatedAt: dbChirp.CreatedAt,
 		UpdatedAt: dbChirp.UpdatedAt,
 		Body:      dbChirp.Body,
-		User_ID:   dbChirp.UserID,
+		UserID:    dbChirp.UserID,
 	})
 }
 
@@ -130,12 +129,12 @@ func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, req *http.Reque
 	if err != nil {
 		respondWithError(w, 500, "chrip creation db error")
 	}
-	respondWithJSON(w, http.StatusCreated, chirpResource{
+	respondWithJSON(w, http.StatusCreated, database.Chirp{
 		ID:        dbChrip.ID,
 		CreatedAt: dbChrip.CreatedAt,
 		UpdatedAt: dbChrip.UpdatedAt,
 		Body:      dbChrip.Body,
-		User_ID:   dbChrip.UserID,
+		UserID:    dbChrip.UserID,
 	})
 }
 
@@ -167,12 +166,4 @@ func profaneCleaner(body string) string {
 	}
 
 	return strings.Join(words, " ")
-}
-
-type chirpResource struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Body      string    `json:"body"`
-	User_ID   uuid.UUID `json:"user_id"`
 }

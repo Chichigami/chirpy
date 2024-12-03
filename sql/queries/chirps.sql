@@ -11,7 +11,7 @@ RETURNING *;
 
 -- name: ListChrips :many
 SELECT * FROM chirps
-ORDER BY created_at ASC;
+ORDER BY created_at DEFAULT ASC;
 
 -- name: GetChirp :one
 SELECT * FROM chirps
@@ -24,4 +24,4 @@ WHERE id = $1;
 -- name: GetAllChirpsFromAuthor :many
 SELECT * FROM chirps
 WHERE user_id = $1
-ORDER BY created_at ASC;
+ORDER BY created_at = $2 DEFAULT ASC;
