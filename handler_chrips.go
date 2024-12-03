@@ -65,23 +65,35 @@ func (cfg *apiConfig) handlerChirpsGetID(w http.ResponseWriter, req *http.Reques
 }
 
 func (cfg *apiConfig) handlerChirpsGetAll(w http.ResponseWriter, req *http.Request) {
-	dbChirps, err := cfg.db.ListChrips(req.Context())
+	//from GET /api/chirps
+	//can be queried
+	query := false
+	var err error
+	target := req.URL.Query().Get("author_id")
+	if target != "" {
+		query = true
+	}
+
+	var dbChirps []database.Chirp
+
+	if query {
+		var userID uuid.UUID
+		userID, err = uuid.Parse(target)
+		if err != nil {
+			respondWithError(w, 401, "parsing author id gone wrong")
+			return
+		}
+		dbChirps, err = cfg.db.GetAllChirpsFromAuthor(req.Context(), userID)
+	} else {
+		dbChirps, err = cfg.db.ListChrips(req.Context())
+	}
+
 	if err != nil {
-		respondWithError(w, 500, "fetching all chirps error")
+		respondWithError(w, 500, err.Error())
 		return
 	}
-	allChirps := []chirpResource{}
-	for _, dbChirp := range dbChirps {
-		jsonChirp := chirpResource{
-			ID:        dbChirp.ID,
-			CreatedAt: dbChirp.CreatedAt,
-			UpdatedAt: dbChirp.UpdatedAt,
-			Body:      dbChirp.Body,
-			User_ID:   dbChirp.UserID,
-		}
-		allChirps = append(allChirps, jsonChirp)
-	}
-	respondWithJSON(w, http.StatusOK, allChirps)
+
+	respondWithJSON(w, http.StatusOK, dbChirps)
 }
 
 func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, req *http.Request) {
