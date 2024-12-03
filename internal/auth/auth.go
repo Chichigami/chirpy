@@ -13,6 +13,18 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+func GetAPIKey(headers http.Header) (string, error) {
+	authInfo := headers.Get("Authorization")
+	if authInfo == "" {
+		return "", fmt.Errorf("auth is empty")
+	}
+	tokenParts := strings.Split(authInfo, " ")
+	if len(tokenParts) != 2 || tokenParts[0] != "ApiKey" {
+		return "", fmt.Errorf("no polka key found")
+	}
+	return tokenParts[1], nil
+}
+
 func MakeRefreshToken() (string, error) {
 	b := make([]byte, 32)
 	_, err := rand.Read(b)

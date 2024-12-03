@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/chichigami/chirpy/internal/auth"
 	"github.com/chichigami/chirpy/internal/database"
 	"github.com/google/uuid"
 )
@@ -23,6 +24,18 @@ func (cfg *apiConfig) handlerPolkaWebhook(w http.ResponseWriter, req *http.Reque
 		respondWithError(w, 400, decodeErr.Error())
 		return
 	}
+
+	clientAPIKey, err := auth.GetAPIKey(req.Header)
+	if err != nil {
+		respondWithError(w, 401, err.Error())
+		return
+	}
+
+	if clientAPIKey != cfg.polka {
+		respondWithError(w, 401, "key does not match")
+		return
+	}
+
 	if param.Event != "user.upgraded" {
 		w.WriteHeader(204)
 		return

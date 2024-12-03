@@ -23,6 +23,16 @@ func TestGetBearerToken(t *testing.T) {
 	}
 }
 
+func TestGetApiKey(t *testing.T) {
+	headers := http.Header{}
+	headers.Set("Authorization", "Authorization: ApiKey f271c81ff7084ee5b99a5091b42d486e")
+	actual, _ := GetAPIKey(headers)
+	expected := "f271c81ff7084ee5b99a5091b42d486e"
+	if actual != expected {
+		t.Fatalf("Token String are not equal")
+	}
+}
+
 func TestMakeRefreshToken(t *testing.T) {
 	token, _ := MakeRefreshToken()
 	expectedLength := 64
