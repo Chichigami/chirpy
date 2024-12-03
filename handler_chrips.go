@@ -12,6 +12,38 @@ import (
 	"github.com/google/uuid"
 )
 
+func (cfg *apiConfig) handlerChirpsDeleteID(w http.ResponseWriter, req *http.Request) {
+	chirpID, err := uuid.Parse(req.PathValue("chirpID"))
+	if err != nil {
+		respondWithError(w, 404, "invalid chirpID")
+		return
+	}
+
+	jwtToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, 401, err.Error())
+		return
+	}
+
+	userID, err := auth.ValidateJWT(jwtToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, 401, err.Error())
+		return
+	}
+
+	chirp, err := cfg.db.GetChirp(req.Context(), chirpID)
+	if err != nil {
+		respondWithError(w, 404, "chirp is not found")
+		return
+	}
+	if chirp.UserID != userID {
+		respondWithError(w, 403, "authorization not valid")
+		return
+	}
+	cfg.db.DeleteChirp(req.Context(), chirpID)
+	w.WriteHeader(204)
+}
+
 func (cfg *apiConfig) handlerChirpsGetID(w http.ResponseWriter, req *http.Request) {
 	chripID, err := uuid.Parse(req.PathValue("chirpID"))
 	if err != nil {
