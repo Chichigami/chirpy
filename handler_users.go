@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -12,11 +13,12 @@ import (
 
 func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, req *http.Request) {
 	type User struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
-		Token     string    `json:"token"`
+		ID            uuid.UUID `json:"id"`
+		CreatedAt     time.Time `json:"created_at"`
+		UpdatedAt     time.Time `json:"updated_at"`
+		Email         string    `json:"email"`
+		Token         string    `json:"token"`
+		Refresh_Token string    `json:"refresh_token"`
 	}
 	param := parameter{}
 	decoder := json.NewDecoder(req.Body)
@@ -24,6 +26,7 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, req *http.Request
 		respondWithError(w, 500, decodeErr.Error())
 		return
 	}
+
 	dbUser, err := cfg.db.GetUserByEmail(req.Context(), param.Email)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
@@ -35,15 +38,25 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, req *http.Request
 	}
 
 	const maxTokenDuration = time.Hour
-	expiresIn := time.Duration(param.Expires_In_Seconds) * time.Second
-	if expiresIn > maxTokenDuration || param.Expires_In_Seconds == 0 {
-		expiresIn = maxTokenDuration
-	}
-	userToken, err := auth.MakeJWT(dbUser.ID, cfg.jwtSecret, expiresIn)
+
+	userToken, err := auth.MakeJWT(dbUser.ID, cfg.jwtSecret, maxTokenDuration)
 	if err != nil {
 		respondWithError(w, 500, "token generation failed")
 		return
 	}
+
+	refreshToken, err := auth.MakeRefreshToken()
+	if err != nil {
+		respondWithError(w, 500, "refresh token generation failed")
+		return
+	}
+	refreshTokenParam := database.CreateRefreshTokenParams{
+		Token:     refreshToken,
+		UserID:    dbUser.ID,
+		ExpiresAt: sql.NullTime{Time: time.Now().Add(time.Hour * 24 * 60), Valid: true},
+		RevokedAt: sql.NullTime{},
+	}
+	cfg.db.CreateRefreshToken(req.Context(), refreshTokenParam)
 
 	respondWithJSON(w, http.StatusOK, User{
 		dbUser.ID,
@@ -51,6 +64,7 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, req *http.Request
 		dbUser.UpdatedAt,
 		dbUser.Email,
 		userToken,
+		refreshToken,
 	})
 }
 
@@ -93,7 +107,6 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, req *http.Reques
 }
 
 type parameter struct {
-	Password           string `json:"password"`
-	Email              string `json:"email"`
-	Expires_In_Seconds int    `json:"expires_in_seconds"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
 }

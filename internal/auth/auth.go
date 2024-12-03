@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,19 +13,24 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
-		Issuer:    "chirpy",
-		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresIn).UTC()),
-		Subject:   userID.String(),
-	})
-	signedToken, err := token.SignedString([]byte(tokenSecret))
+func MakeRefreshToken() (string, error) {
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
 	if err != nil {
 		return "", err
 	}
-	return signedToken, nil
+	return hex.EncodeToString(b), nil
 }
+
+func GetBearerToken(headers http.Header) (string, error) {
+	authInfo := headers.Get("Authorization")
+	tokenParts := strings.Split(authInfo, " ")
+	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+		return "", fmt.Errorf("not a bearer token")
+	}
+	return tokenParts[1], nil
+}
+
 func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	jwtToken, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -40,6 +47,10 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 		return uuid.UUID{}, fmt.Errorf("invalid token claims")
 	}
 
+	if time.Now().After(jwtClaims.ExpiresAt.Time) {
+		return uuid.UUID{}, fmt.Errorf("jwt token expired")
+	}
+
 	userID, err := uuid.Parse(jwtClaims.Subject)
 	if err != nil {
 		return uuid.UUID{}, err
@@ -47,13 +58,22 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	return userID, nil
 }
 
-func GetBearerToken(headers http.Header) (string, error) {
-	authInfo := headers.Get("Authorization")
-	tokenParts := strings.Split(authInfo, " ")
-	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-		return "", fmt.Errorf("not a bearer token")
+func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
+		Issuer:    "chirpy",
+		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresIn).UTC()),
+		Subject:   userID.String(),
+	})
+	signedToken, err := token.SignedString([]byte(tokenSecret))
+	if err != nil {
+		return "", err
 	}
-	return tokenParts[1], nil
+	return signedToken, nil
+}
+
+func CheckPasswordHash(hash, password string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 }
 
 func HashPassword(password string) (string, error) {
@@ -62,8 +82,4 @@ func HashPassword(password string) (string, error) {
 		return "", err
 	}
 	return string(hash), nil
-}
-
-func CheckPasswordHash(hash, password string) error {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 }

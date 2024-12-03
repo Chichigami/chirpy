@@ -22,3 +22,11 @@ func TestGetBearerToken(t *testing.T) {
 		t.Fatalf("Token String are not equal")
 	}
 }
+
+func TestMakeRefreshToken(t *testing.T) {
+	token, _ := MakeRefreshToken()
+	expectedLength := 64
+	if len(token) != expectedLength {
+		t.Fatalf("token: %v is not %v long, it's %v", token, expectedLength, len(token))
+	}
+}
