@@ -41,10 +41,11 @@ func (cfg *apiConfig) handlerUsersUpdate(w http.ResponseWriter, req *http.Reques
 		HashedPassword: newPassword,
 	})
 	type User struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
+		ID            uuid.UUID `json:"id"`
+		CreatedAt     time.Time `json:"created_at"`
+		UpdatedAt     time.Time `json:"updated_at"`
+		Email         string    `json:"email"`
+		Is_Chirpy_Red bool      `json:"is_chirpy_red"`
 	}
 	dbUser, err := cfg.db.GetUserByEmail(req.Context(), param.Email)
 	if err != nil {
@@ -52,10 +53,11 @@ func (cfg *apiConfig) handlerUsersUpdate(w http.ResponseWriter, req *http.Reques
 		return
 	}
 	respondWithJSON(w, 200, User{
-		ID:        dbUser.ID,
-		CreatedAt: dbUser.CreatedAt,
-		UpdatedAt: dbUser.UpdatedAt,
-		Email:     dbUser.Email,
+		ID:            dbUser.ID,
+		CreatedAt:     dbUser.CreatedAt,
+		UpdatedAt:     dbUser.UpdatedAt,
+		Email:         dbUser.Email,
+		Is_Chirpy_Red: dbUser.IsChirpyRed.Bool,
 	})
 }
 
@@ -67,6 +69,7 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, req *http.Request
 		Email         string    `json:"email"`
 		Token         string    `json:"token"`
 		Refresh_Token string    `json:"refresh_token"`
+		Is_Chirpy_Red bool      `json:"is_chirpy_red"`
 	}
 	param := parameter{}
 	decoder := json.NewDecoder(req.Body)
@@ -113,16 +116,18 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, req *http.Request
 		dbUser.Email,
 		userToken,
 		refreshToken,
+		dbUser.IsChirpyRed.Bool,
 	})
 }
 
 func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, req *http.Request) {
 	//called from POST /api/users
 	type User struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
+		ID            uuid.UUID `json:"id"`
+		CreatedAt     time.Time `json:"created_at"`
+		UpdatedAt     time.Time `json:"updated_at"`
+		Email         string    `json:"email"`
+		Is_Chirpy_Red bool      `json:"is_chirpy_red"`
 	}
 	param := parameter{}
 	decoder := json.NewDecoder(req.Body)
@@ -139,6 +144,7 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, req *http.Reques
 	dbUser, dbErr := cfg.db.CreateUser(req.Context(), database.CreateUserParams{
 		Email:          param.Email,
 		HashedPassword: hashedPass,
+		IsChirpyRed:    sql.NullBool{Bool: false, Valid: false},
 	})
 
 	if dbErr != nil {
@@ -147,10 +153,11 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, req *http.Reques
 	}
 
 	respondWithJSON(w, http.StatusCreated, User{
-		dbUser.ID,
-		dbUser.CreatedAt,
-		dbUser.UpdatedAt,
-		dbUser.Email,
+		ID:            dbUser.ID,
+		CreatedAt:     dbUser.CreatedAt,
+		UpdatedAt:     dbUser.UpdatedAt,
+		Email:         dbUser.Email,
+		Is_Chirpy_Red: dbUser.IsChirpyRed.Bool,
 	})
 }
 
