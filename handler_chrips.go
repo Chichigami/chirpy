@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/chichigami/chirpy/internal/auth"
 	"github.com/chichigami/chirpy/internal/database"
@@ -44,17 +45,17 @@ func (cfg *apiConfig) handlerChirpsDeleteID(w http.ResponseWriter, req *http.Req
 }
 
 func (cfg *apiConfig) handlerChirpsGetID(w http.ResponseWriter, req *http.Request) {
-	chripID, err := uuid.Parse(req.PathValue("chirpID"))
+	chirpID, err := uuid.Parse(req.PathValue("chirpID"))
 	if err != nil {
 		respondWithError(w, 404, "invalid chirpID")
 		return
 	}
-	dbChirp, err := cfg.db.GetChirp(req.Context(), chripID)
+	dbChirp, err := cfg.db.GetChirp(req.Context(), chirpID)
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, "fetching chirp server error")
 		return
 	}
-	respondWithJSON(w, http.StatusOK, database.Chirp{
+	respondWithJSON(w, http.StatusOK, ChirpResponse{
 		ID:        dbChirp.ID,
 		CreatedAt: dbChirp.CreatedAt,
 		UpdatedAt: dbChirp.UpdatedAt,
@@ -66,25 +67,45 @@ func (cfg *apiConfig) handlerChirpsGetID(w http.ResponseWriter, req *http.Reques
 func (cfg *apiConfig) handlerChirpsGetAll(w http.ResponseWriter, req *http.Request) {
 	//from GET /api/chirps
 	//can be queried
-	query := false
 	var err error
-	target := req.URL.Query().Get("author_id")
-	if target != "" {
-		query = true
-	}
-
 	var dbChirps []database.Chirp
 
-	if query {
+	author := false
+	authorParam := req.URL.Query().Get("author_id")
+	if authorParam != "" {
+		author = true
+	}
+
+	sort := "ASC"
+	sortParam := req.URL.Query().Get("sort")
+	if strings.ToUpper(sortParam) == "DESC" {
+		sort = "DESC"
+	}
+
+	// baseQuery := "SELECT * FROM chirps"
+	// if author {
+	// 	baseQuery += "WHERE user_id = $1"
+	// }
+	// baseQuery += "ORDER BY created_at $2"
+
+	if author {
 		var userID uuid.UUID
-		userID, err = uuid.Parse(target)
+		userID, err = uuid.Parse(authorParam)
 		if err != nil {
 			respondWithError(w, 401, "parsing author id gone wrong")
 			return
 		}
-		dbChirps, err = cfg.db.GetAllChirpsFromAuthor(req.Context(), userID)
+		if sort == "ASC" {
+			dbChirps, err = cfg.db.GetAllChirpsFromAuthorASC(req.Context(), userID)
+		} else {
+			dbChirps, err = cfg.db.GetAllChirpsFromAuthorDESC(req.Context(), userID)
+		}
 	} else {
-		dbChirps, err = cfg.db.ListChrips(req.Context())
+		if sort == "ASC" {
+			dbChirps, err = cfg.db.ListChirpsASC(req.Context())
+		} else {
+			dbChirps, err = cfg.db.ListChirpsDESC(req.Context())
+		}
 	}
 
 	if err != nil {
@@ -92,7 +113,19 @@ func (cfg *apiConfig) handlerChirpsGetAll(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, dbChirps)
+	response := []ChirpResponse{}
+
+	for _, dbChirp := range dbChirps {
+		response = append(response, ChirpResponse{
+			ID:        dbChirp.ID,
+			Body:      dbChirp.Body,
+			CreatedAt: dbChirp.CreatedAt,
+			UpdatedAt: dbChirp.UpdatedAt,
+			UserID:    dbChirp.UserID,
+		})
+	}
+
+	respondWithJSON(w, http.StatusOK, response)
 }
 
 func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, req *http.Request) {
@@ -111,30 +144,30 @@ func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, req *http.Reque
 	type parameter struct {
 		Body string `json:"body"`
 	}
-
 	param := parameter{}
 	decoder := json.NewDecoder(req.Body)
 	if decodeErr := decoder.Decode(&param); decodeErr != nil {
 		respondWithError(w, 400, decodeErr.Error())
 		return
 	}
+
 	validatedChirp, err := chirpsValidate(param.Body)
 	if err != nil {
 		respondWithError(w, 400, err.Error())
 	}
-	dbChrip, err := cfg.db.CreateChrip(req.Context(), database.CreateChripParams{
+	dbchirp, err := cfg.db.CreateChirp(req.Context(), database.CreateChirpParams{
 		Body:   validatedChirp,
 		UserID: userID,
 	})
 	if err != nil {
-		respondWithError(w, 500, "chrip creation db error")
+		respondWithError(w, 500, "chirp creation db error")
 	}
-	respondWithJSON(w, http.StatusCreated, database.Chirp{
-		ID:        dbChrip.ID,
-		CreatedAt: dbChrip.CreatedAt,
-		UpdatedAt: dbChrip.UpdatedAt,
-		Body:      dbChrip.Body,
-		UserID:    dbChrip.UserID,
+	respondWithJSON(w, http.StatusCreated, ChirpResponse{
+		ID:        dbchirp.ID,
+		CreatedAt: dbchirp.CreatedAt,
+		UpdatedAt: dbchirp.UpdatedAt,
+		Body:      dbchirp.Body,
+		UserID:    dbchirp.UserID,
 	})
 }
 
@@ -166,4 +199,12 @@ func profaneCleaner(body string) string {
 	}
 
 	return strings.Join(words, " ")
+}
+
+type ChirpResponse struct {
+	ID        uuid.UUID `json:"id"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	UserID    uuid.UUID `json:"user_id"`
 }

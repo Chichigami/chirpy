@@ -38,6 +38,7 @@ func main() {
 	if polkaSecret == "" {
 		log.Fatal("POLKA_KEY must be set")
 	}
+
 	apiCfg := apiConfig{
 		db:        dbQueries,
 		platform:  platform,
@@ -47,6 +48,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.Handle("/app/", http.StripPrefix("/app", apiCfg.middlewareMetricInc(http.FileServer(http.FileSystem(http.Dir("."))))))
+
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetric)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerMetricReset)
 	mux.HandleFunc("GET /api/healthz", handlerHealthz)
