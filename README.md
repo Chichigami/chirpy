@@ -2,11 +2,11 @@
 
 ## What is this?
 
-It's a rudamentary implementation of Twitter/X. Check docs for API support. 
+RESTful API backend for a social media platform
 
 ## Why?
 
 Made this to learn http servers. 
 
 ## Documentation
-[Here]
+[Here](/docs)
